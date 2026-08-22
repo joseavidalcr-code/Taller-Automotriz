@@ -2,10 +2,16 @@ appId: com.tallerautomotriz.app
 productName: Taller Automotriz
 copyright: Taller Automotriz
 asar: true
+asarUnpack:
+  - node_modules/sql.js/dist/sql-wasm.wasm
 files:
   - dist/**
   - server/**
   - electron/**
+  - node_modules/sql.js/**
+  - node_modules/bcryptjs/**
+  - node_modules/express/**
+  - node_modules/cors/**
   - package.json
 win:
   target:
