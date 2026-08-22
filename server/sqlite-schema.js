@@ -1,7 +1,7 @@
 export const SQLITE_SCHEMA = `
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS usuarios (
- id TEXT PRIMARY KEY,
+ id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
  nombre TEXT NOT NULL,
  apellido TEXT,
  email TEXT UNIQUE,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS clientes (
- id TEXT PRIMARY KEY,
+ id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
  nombre TEXT NOT NULL,
  apellidos TEXT,
  telefono TEXT,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS clientes (
  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS vehiculos (
- id TEXT PRIMARY KEY,
+ id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
  cliente_id TEXT NOT NULL REFERENCES clientes(id),
  matricula TEXT NOT NULL UNIQUE,
  marca TEXT,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS vehiculos (
  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS ordenes_trabajo (
- id TEXT PRIMARY KEY,
+ id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
  cliente_id TEXT NOT NULL REFERENCES clientes(id),
  vehiculo_id TEXT NOT NULL REFERENCES vehiculos(id),
  numero_ot TEXT UNIQUE,
