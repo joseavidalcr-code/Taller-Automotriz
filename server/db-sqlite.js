@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import initSqlJs from 'sql.js';
 import { SQLITE_SCHEMA } from './sqlite-schema.js';
 
+const require = createRequire(import.meta.url);
 const dataDir = process.env.TALLER_DATA_DIR || path.join(process.cwd(), 'data');
 const dbFile = path.join(dataDir, 'taller-automotriz.sqlite');
 let dbPromise;
@@ -11,14 +13,20 @@ let db;
 
 function persist() {
   fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(dbFile, Buffer.from(db.export()));
+  const tmpFile = `${dbFile}.tmp`;
+  fs.writeFileSync(tmpFile, Buffer.from(db.export()));
+  fs.renameSync(tmpFile, dbFile);
 }
 
 async function getDb() {
   if (db) return db;
   dbPromise ||= (async () => {
-    const SQL = await initSqlJs({ locateFile: file => path.join(path.dirname(requireResolveSqlJs()), file) });
-    db = fs.existsSync(dbFile) ? new SQL.Database(fs.readFileSync(dbFile)) : new SQL.Database();
+    fs.mkdirSync(dataDir, { recursive: true });
+    const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
+    const SQL = await initSqlJs({ locateFile: () => wasmPath });
+    db = fs.existsSync(dbFile)
+      ? new SQL.Database(new Uint8Array(fs.readFileSync(dbFile)))
+      : new SQL.Database();
     db.run(SQLITE_SCHEMA);
     persist();
     return db;
@@ -26,17 +34,20 @@ async function getDb() {
   return dbPromise;
 }
 
-function requireResolveSqlJs() {
-  const resolved = import.meta.resolve('sql.js');
-  return new URL(resolved).pathname.replace(/^\//, '');
-}
-
 function normalize(sql) {
-  return sql
+  let normalized = sql
     .replace(/\bnow\(\)/gi, "datetime('now')")
     .replace(/::jsonb/gi, '')
     .replace(/::text/gi, '')
     .replace(/\bILIKE\b/gi, 'LIKE');
+
+  const values = [];
+  normalized = normalized.replace(/\$(\d+)/g, (_match, number) => {
+    values.push(Number(number));
+    return '?';
+  });
+
+  return { sql: normalized, positions: values };
 }
 
 function rowsFromStatement(statement) {
@@ -52,9 +63,12 @@ function rowsFromStatement(statement) {
 
 export async function query(text, params = []) {
   const database = await getDb();
-  const sql = normalize(text);
-  const stmt = database.prepare(sql);
-  stmt.bind(params);
+  const normalized = normalize(text);
+  const orderedParams = normalized.positions.length
+    ? normalized.positions.map(position => params[position - 1])
+    : params;
+  const stmt = database.prepare(normalized.sql);
+  stmt.bind(orderedParams);
   const rows = rowsFromStatement(stmt);
   const rowCount = database.getRowsModified();
   persist();
@@ -73,7 +87,7 @@ export async function withTransaction(fn) {
     persist();
     return result;
   } catch (error) {
-    database.run('ROLLBACK');
+    try { database.run('ROLLBACK'); } catch {}
     throw error;
   }
 }
