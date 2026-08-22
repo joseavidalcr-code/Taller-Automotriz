@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taller-automotriz-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: taller_automotriz
+      POSTGRES_USER: taller
+      POSTGRES_PASSWORD: change-me-local-only
+    ports:
+      - "5433:5432"
+    volumes:
+      - taller_pgdata:/var/lib/postgresql/data
+      - ./server/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taller -d taller_automotriz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  taller_pgdata:
