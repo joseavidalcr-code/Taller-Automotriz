@@ -10,6 +10,7 @@ const dataDir = process.env.TALLER_DATA_DIR || path.join(process.cwd(), 'data');
 const dbFile = path.join(dataDir, 'taller-automotriz.sqlite');
 let dbPromise;
 let db;
+let transactionDepth = 0;
 
 function persist() {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -41,53 +42,63 @@ function normalize(sql) {
     .replace(/::text/gi, '')
     .replace(/\bILIKE\b/gi, 'LIKE');
 
-  const values = [];
+  const positions = [];
   normalized = normalized.replace(/\$(\d+)/g, (_match, number) => {
-    values.push(Number(number));
+    positions.push(Number(number));
     return '?';
   });
 
-  return { sql: normalized, positions: values };
+  return { sql: normalized, positions };
 }
 
-function rowsFromStatement(statement) {
-  const columns = statement.getColumnNames();
-  const rows = [];
-  while (statement.step()) {
-    const values = statement.get();
-    rows.push(Object.fromEntries(columns.map((c, i) => [c, values[i]])));
-  }
-  statement.free();
-  return rows;
-}
-
-export async function query(text, params = []) {
-  const database = await getDb();
+function execute(database, text, params = []) {
   const normalized = normalize(text);
   const orderedParams = normalized.positions.length
     ? normalized.positions.map(position => params[position - 1])
     : params;
   const stmt = database.prepare(normalized.sql);
-  stmt.bind(orderedParams);
-  const rows = rowsFromStatement(stmt);
-  const rowCount = database.getRowsModified();
-  persist();
-  return { rows, rowCount };
+  try {
+    stmt.bind(orderedParams);
+    const columns = stmt.getColumnNames();
+    const rows = [];
+    while (stmt.step()) {
+      const values = stmt.get();
+      rows.push(Object.fromEntries(columns.map((c, i) => [c, values[i]])));
+    }
+    return { rows, rowCount: database.getRowsModified() };
+  } finally {
+    stmt.free();
+  }
+}
+
+export async function query(text, params = []) {
+  const database = await getDb();
+  const result = execute(database, text, params);
+  if (transactionDepth === 0) persist();
+  return result;
 }
 
 export async function withTransaction(fn) {
   const database = await getDb();
-  database.run('BEGIN');
+  const outermost = transactionDepth === 0;
+  if (outermost) database.run('BEGIN TRANSACTION');
+  transactionDepth += 1;
   const client = {
-    query: async (text, params = []) => query(text, params)
+    query: async (text, params = []) => execute(database, text, params)
   };
   try {
     const result = await fn(client);
-    database.run('COMMIT');
-    persist();
+    transactionDepth -= 1;
+    if (outermost) {
+      database.run('COMMIT');
+      persist();
+    }
     return result;
   } catch (error) {
-    try { database.run('ROLLBACK'); } catch {}
+    transactionDepth = Math.max(0, transactionDepth - 1);
+    if (outermost) {
+      try { database.run('ROLLBACK'); } catch {}
+    }
     throw error;
   }
 }
