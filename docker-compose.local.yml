@@ -4,18 +4,19 @@ services:
     container_name: taller-automotriz-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: taller_automotriz
-      POSTGRES_USER: taller
-      POSTGRES_PASSWORD: change-me-local-only
+      POSTGRES_DB: ${POSTGRES_DB:-taller_automotriz}
+      POSTGRES_USER: ${POSTGRES_USER:-taller}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env.local}
     ports:
       - "5433:5432"
     volumes:
       - taller_pgdata:/var/lib/postgresql/data
       - ./server/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U taller -d taller_automotriz"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-taller} -d $${POSTGRES_DB:-taller_automotriz}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
 volumes:
   taller_pgdata:
