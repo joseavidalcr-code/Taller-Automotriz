@@ -17,6 +17,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
+  api:
+    image: node:20-alpine
+    container_name: taller-automotriz-api
+    restart: unless-stopped
+    working_dir: /app
+    environment:
+      LOCAL_DATABASE_URL: postgresql://taller:${POSTGRES_PASSWORD}@postgres:5432/taller_automotriz
+      LOCAL_SERVER_PORT: 8787
+    volumes:
+      - ./server:/app
+    ports:
+      - "8787:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npm install && node migrations/run-migrations.js && node index.js"
 volumes:
   taller_pgdata:
