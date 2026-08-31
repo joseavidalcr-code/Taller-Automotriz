@@ -8,11 +8,11 @@ const fmt=ms=>{const s=Math.max(0,Math.floor((Number(ms)||0)/1000));return `${St
 const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null}catch{return null}};
 const write=v=>v?localStorage.setItem(STORAGE_KEY,JSON.stringify(v)):localStorage.removeItem(STORAGE_KEY);
 
-async function pinRequest(path,options={}){const res=await fetch(`${PIN_API}${path}`,{headers:{'Content-Type':'application/json'},...options});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||`Error ${res.status}`);return body}
+async function pinRequest(path,options={}){if(window.tallerDesktop){if(path==='/api/mecanico/pin/users')return {__ipc:true,users:await window.tallerDesktop.listMechanics()};if(path==='/api/mecanico/pin/login'){const body=JSON.parse(options.body||'{}');return window.tallerDesktop.loginMechanic(body.id,body.pin)}}const res=await fetch(`${PIN_API}${path}`,{headers:{'Content-Type':'application/json'},...options});const body=await res.json().catch(()=>({}));if(!res.ok)throw new Error(body.error||`Error ${res.status}`);return body}
 
 export default function PanelMecanicoLocal({onExit}){
  const [usuarios,setUsuarios]=useState([]),[ordenes,setOrdenes]=useState([]),[active,setActive]=useState(read),[selected,setSelected]=useState(''),[pin,setPin]=useState(''),[user,setUser]=useState(null),[ot,setOt]=useState(''),[task,setTask]=useState(''),[error,setError]=useState(''),[tick,setTick]=useState(Date.now()),[busy,setBusy]=useState(false);
- useEffect(()=>{Promise.all([pinRequest('/api/mecanico/pin/users'),localApi.ordenes()]).then(([u,o])=>{setUsuarios(u.filter(x=>Number(x.pin_enabled)===1));setOrdenes(o.filter(x=>!['entregada','cancelada'].includes(x.estado))) }).catch(e=>setError(e.message))},[]);
+ useEffect(()=>{Promise.all([pinRequest('/api/mecanico/pin/users'),localApi.ordenes()]).then(([u,o])=>{const list=u.__ipc?u.users:u;setUsuarios(list.filter(x=>Number(x.pin_enabled)===1));setOrdenes(o.filter(x=>!['entregada','cancelada'].includes(x.estado))) }).catch(e=>setError(e.message))},[]);
  useEffect(()=>{write(active)},[active]);
  useEffect(()=>{if(active){const i=setInterval(()=>setTick(Date.now()),1000);return()=>clearInterval(i)}},[active]);
  const elapsed=active?Math.max(0,tick-active.startedAt-(active.pausedMs||0)-(active.pausedAt?tick-active.pausedAt:0)):0;
