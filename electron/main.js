@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell, ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -62,12 +62,17 @@ async function createMechanicWindow() {
     minWidth: 760,
     minHeight: 620,
     title: 'Taller Automotriz — Panel Mecánico',
-    webPreferences: { contextIsolation: true, nodeIntegration: false }
+    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') }
   });
   configureWindow(mechanicWindow);
   await mechanicWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'mecanico' });
   mechanicWindow.on('closed', () => { mechanicWindow = null; });
 }
+
+ipcMain.handle('open-mechanic-panel', async () => {
+  await createMechanicWindow();
+  return { ok: true };
+});
 
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -75,7 +80,7 @@ async function createMainWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') },
     title: 'Taller Automotriz'
   });
   configureWindow(mainWindow);
