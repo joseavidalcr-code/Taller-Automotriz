@@ -2,6 +2,8 @@ import { app, BrowserWindow, dialog, shell, ipcMain } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import bcrypt from 'bcryptjs';
+import { query } from '../server/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = 8787;
@@ -16,6 +18,13 @@ function writeStartupLog(message, error) {
     const detail = error?.stack || error?.message || String(error || '');
     fs.appendFileSync(path.join(dir, 'startup.log'), `[${new Date().toISOString()}] ${message}${detail ? `\n${detail}` : ''}\n`);
   } catch {}
+}
+
+async function verifyAdministratorPassword(password) {
+  if (!password) return false;
+  const { rows } = await query("select local_password_hash from usuarios where rol='administrador' and activo=true and local_password_hash is not null");
+  for (const row of rows) if (row.local_password_hash && await bcrypt.compare(password, row.local_password_hash)) return true;
+  return false;
 }
 
 async function startServer() {
@@ -73,6 +82,31 @@ ipcMain.handle('open-mechanic-panel', async () => {
   await createMechanicWindow();
   return { ok: true };
 });
+ipcMain.handle('list-mechanics', async () => {
+  const { rows } = await query("select id,nombre,apellido,activo,pin_enabled from usuarios where rol='mecanico' order by nombre,apellido");
+  return rows;
+});
+ipcMain.handle('login-mechanic', async (_event, { id, pin }) => {
+  if (!id || !/^\d{4,6}$/.test(String(pin || ''))) throw new Error('Introduce un PIN válido de 4 a 6 dígitos.');
+  const { rows } = await query("select id,nombre,apellido,rol,activo,pin_hash,pin_enabled from usuarios where id=$1 and rol='mecanico' limit 1", [id]);
+  const u = rows[0];
+  if (!u || !u.activo || Number(u.pin_enabled) !== 1 || !u.pin_hash || !(await bcrypt.compare(String(pin), u.pin_hash))) throw new Error('PIN incorrecto o acceso no habilitado.');
+  return { user: { id: u.id, nombre: u.nombre, apellido: u.apellido, rol: u.rol } };
+});
+ipcMain.handle('set-mechanic-pin', async (_event, { id, pin, adminPassword }) => {
+  if (!/^\d{4,6}$/.test(String(pin || ''))) throw new Error('El PIN debe tener entre 4 y 6 dígitos.');
+  if (!(await verifyAdministratorPassword(adminPassword))) throw new Error('Contraseña de administrador incorrecta.');
+  const hash = await bcrypt.hash(String(pin), 12);
+  const { rows } = await query("update usuarios set pin_hash=$1,pin_enabled=1 where id=$2 and rol='mecanico' returning id,nombre,apellido,pin_enabled", [hash, id]);
+  if (!rows[0]) throw new Error('Mecánico no encontrado.');
+  return rows[0];
+});
+ipcMain.handle('set-mechanic-enabled', async (_event, { id, enabled, adminPassword }) => {
+  if (!(await verifyAdministratorPassword(adminPassword))) throw new Error('Contraseña de administrador incorrecta.');
+  const { rows } = await query("update usuarios set pin_enabled=$1,activo=1 where id=$2 and rol='mecanico' returning id,nombre,apellido,pin_enabled", [enabled ? 1 : 0, id]);
+  if (!rows[0]) throw new Error('Mecánico no encontrado.');
+  return rows[0];
+});
 
 async function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -99,6 +133,4 @@ app.whenReady().then(async () => {
   app.quit();
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
