@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = 8787;
+const mechanicPinPort = 8788;
 
 function writeStartupLog(message, error) {
   try {
@@ -17,10 +18,12 @@ function writeStartupLog(message, error) {
 
 async function startServer() {
   process.env.LOCAL_SERVER_PORT = String(port);
+  process.env.MECHANIC_PIN_PORT = String(mechanicPinPort);
   process.env.TALLER_DATA_DIR = path.join(app.getPath('userData'), 'data');
   writeStartupLog('Iniciando servidor local');
   await import('../server/index.js');
-  writeStartupLog('Servidor local iniciado');
+  await import('../server/pin-api.js');
+  writeStartupLog('Servidores locales iniciados');
 }
 
 async function waitForServer() {
