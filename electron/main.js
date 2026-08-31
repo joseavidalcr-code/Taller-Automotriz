@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = 8787;
 const mechanicPinPort = 8788;
+let mainWindow = null;
+let mechanicWindow = null;
 
 function writeStartupLog(message, error) {
   try {
@@ -30,10 +32,7 @@ async function waitForServer() {
   for (let i = 0; i < 40; i += 1) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/health`);
-      if (response.ok) {
-        writeStartupLog('Servidor local respondió correctamente');
-        return;
-      }
+      if (response.ok) return;
     } catch (error) {
       if (i === 39) writeStartupLog('Último intento de conexión al servidor falló', error);
     }
@@ -42,38 +41,54 @@ async function waitForServer() {
   throw new Error('El servidor local de Taller Automotriz no respondió en http://127.0.0.1:8787.');
 }
 
-async function createWindow() {
-  await startServer();
-  await waitForServer();
-
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 700,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false
-    },
-    title: 'Taller Automotriz'
-  });
-
-  await win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+function configureWindow(win) {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (!url.startsWith('file:')) shell.openExternal(url);
     return { action: 'deny' };
   });
 }
 
-app.whenReady().then(createWindow).catch(async error => {
-  writeStartupLog('ERROR FATAL DURANTE EL ARRANQUE', error);
-  await dialog.showMessageBox({
-    type: 'error',
-    title: 'Taller Automotriz no pudo iniciarse',
-    message: 'No se pudo iniciar el servidor local de Taller Automotriz.',
-    detail: `${error?.message || error}\n\nSe ha guardado el diagnóstico en la carpeta de datos de Taller Automotriz.`,
-    buttons: ['Aceptar']
+async function createMechanicWindow() {
+  if (mechanicWindow && !mechanicWindow.isDestroyed()) {
+    mechanicWindow.show();
+    mechanicWindow.focus();
+    return;
+  }
+  mechanicWindow = new BrowserWindow({
+    width: 1050,
+    height: 800,
+    minWidth: 760,
+    minHeight: 620,
+    title: 'Taller Automotriz — Panel Mecánico',
+    webPreferences: { contextIsolation: true, nodeIntegration: false }
   });
+  configureWindow(mechanicWindow);
+  await mechanicWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'mecanico' });
+  mechanicWindow.on('closed', () => { mechanicWindow = null; });
+}
+
+async function createMainWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1440,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 700,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    title: 'Taller Automotriz'
+  });
+  configureWindow(mainWindow);
+  await mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+app.whenReady().then(async () => {
+  await startServer();
+  await waitForServer();
+  await createMainWindow();
+  await createMechanicWindow();
+}).catch(async error => {
+  writeStartupLog('ERROR FATAL DURANTE EL ARRANQUE', error);
+  await dialog.showMessageBox({ type: 'error', title: 'Taller Automotriz no pudo iniciarse', message: 'No se pudo iniciar el servidor local de Taller Automotriz.', detail: `${error?.message || error}\n\nSe ha guardado el diagnóstico en la carpeta de datos de Taller Automotriz.`, buttons: ['Aceptar'] });
   app.quit();
 });
 
