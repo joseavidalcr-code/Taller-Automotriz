@@ -25,7 +25,9 @@ async function startServer() {
   writeStartupLog('Iniciando servidor local');
   await import('../server/index.js');
   await import('../server/pin-api.js');
-  writeStartupLog('Servidores locales iniciados');
+  const { ensureDefaultMechanics } = await import('../server/seed-mechanics.js');
+  await ensureDefaultMechanics();
+  writeStartupLog('Servidores locales y mecánicos iniciales listos');
 }
 
 async function waitForServer() {
