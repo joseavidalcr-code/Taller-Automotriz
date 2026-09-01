@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const port = 8787;
-const mechanicPinPort = 8788;
+const mechanicPinPort = 8799;
 let mainWindow = null;
 let mechanicWindow = null;
 let query = null;
@@ -56,7 +56,8 @@ async function waitForServer() {
 
 function configureWindow(win) {
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (!url.startsWith('file:')) shell.openExternal(url);
+    if (url.startsWith('file:')) return { action: 'allow' };
+    shell.openExternal(url);
     return { action: 'deny' };
   });
 }
