@@ -73,7 +73,7 @@ async function createMechanicWindow() {
     minWidth: 760,
     minHeight: 620,
     title: 'Taller Automotriz — Panel Mecánico',
-    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') }
+    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.cjs') }
   });
   configureWindow(mechanicWindow);
   await mechanicWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'), { hash: 'mecanico' });
@@ -116,7 +116,7 @@ async function createMainWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.cjs') },
     title: 'Taller Automotriz'
   });
   configureWindow(mainWindow);
