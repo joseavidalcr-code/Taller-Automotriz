@@ -2,7 +2,7 @@ import {useEffect,useState} from 'react';
 import {Clock3,LogIn,LogOut,Pause,Play,Square,AlertTriangle,RefreshCw} from 'lucide-react';
 import {localApi} from '../lib/api';
 
-const PIN_API=import.meta.env.VITE_MECHANIC_PIN_URL||'http://127.0.0.1:8788';
+const PIN_API=import.meta.env.VITE_MECHANIC_PIN_URL||'http://127.0.0.1:8799';
 const STORAGE_KEY='taller_time_active_v2';
 const fmt=ms=>{const s=Math.max(0,Math.floor((Number(ms)||0)/1000));return `${String(Math.floor(s/3600)).padStart(2,'0')}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`};
 const read=()=>{try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||null}catch{return null}};
