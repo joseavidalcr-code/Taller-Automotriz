@@ -33,9 +33,6 @@ async function startServer() {
   process.env.TALLER_DATA_DIR = path.join(app.getPath('userData'), 'data');
   writeStartupLog(`Iniciando servidor local. Datos: ${process.env.TALLER_DATA_DIR}`);
 
-  // Important: db.js must be imported only after TALLER_DATA_DIR is set.
-  // Otherwise db-sqlite.js captures process.cwd()/data, which can be inside
-  // the installed application directory and cause EPERM on Windows.
   ({ query } = await import('../server/db.js'));
   await import('../server/index.js');
   await import('../server/pin-api.js');
