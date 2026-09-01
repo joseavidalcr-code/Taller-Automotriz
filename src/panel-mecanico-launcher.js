@@ -12,10 +12,14 @@ function installMechanicPanelButton() {
       if (window.tallerDesktop?.openMechanicPanel) {
         await window.tallerDesktop.openMechanicPanel();
       } else {
-        window.open(`${window.location.href.split('#')[0]}#mecanico`, '_blank');
+        const url = `${window.location.href.split('#')[0]}#mecanico`;
+        const win = window.open(url, '_blank', 'width=1050,height=800,resizable=yes');
+        if (!win) console.error('Electron bloqueó la apertura del Panel Mecánico');
       }
     } catch (error) {
       console.error('No se pudo abrir el Panel Mecánico', error);
+      const url = `${window.location.href.split('#')[0]}#mecanico`;
+      window.open(url, '_blank', 'width=1050,height=800,resizable=yes');
     }
   });
   nav.appendChild(button);
